@@ -1,28 +1,20 @@
 package com.smartcampus.resource;
 
+import com.smartcampus.exception.SensorUnavailableException;
+import com.smartcampus.model.Sensor;
+import com.smartcampus.model.SensorReading;
+import com.smartcampus.store.DataStore;
+
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.smartcampus.exception.SensorUnavailableException;
-import com.smartcampus.model.Sensor;
-import com.smartcampus.model.SensorReading;
-import com.smartcampus.store.DataStore;
-
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-
-/**
- * Part 4 - Sub-Resource for sensor readings Handles
- * /api/v1/sensors/{sensorId}/readings This class is returned by SensorResource
- * as a sub-resource locator
- */
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class SensorReadingResource {
@@ -34,10 +26,6 @@ public class SensorReadingResource {
         this.sensorId = sensorId;
     }
 
-    /**
-     * GET /api/v1/sensors/{sensorId}/readings Returns the full reading history
-     * for a sensor
-     */
     @GET
     public Response getReadings() {
         Sensor sensor = store.sensors.get(sensorId);
@@ -52,11 +40,6 @@ public class SensorReadingResource {
         return Response.ok(list).build();
     }
 
-    /**
-     * POST /api/v1/sensors/{sensorId}/readings Appends a new reading for this
-     * sensor. SIDE EFFECT: Also updates the sensor's currentValue field. Throws
-     * SensorUnavailableException (403) if sensor status is MAINTENANCE.
-     */
     @POST
     public Response addReading(SensorReading reading) {
         Sensor sensor = store.sensors.get(sensorId);
@@ -68,21 +51,17 @@ public class SensorReadingResource {
             return Response.status(404).entity(error).build();
         }
 
-        // State constraint: MAINTENANCE sensors cannot accept readings
-        if ("MAINTENANCE".equalsIgnoreCase(sensor.getStatus())) {
+        // 403 Forbidden if sensor is MAINTENANCE or OFFLINE - cannot accept readings
+        if ("MAINTENANCE".equalsIgnoreCase(sensor.getStatus()) ||
+            "OFFLINE".equalsIgnoreCase(sensor.getStatus())) {
             throw new SensorUnavailableException(sensorId);
         }
 
-        // Auto-generate ID and timestamp
         reading.setId(UUID.randomUUID().toString());
         reading.setTimestamp(System.currentTimeMillis());
+        store.readings.get(sensorId).add(reading);
 
-        // Save reading
-        store.readings
-                .computeIfAbsent(sensorId, k -> new ArrayList<>())
-                .add(reading);
-
-        // SIDE EFFECT: Update the parent sensor's currentValue for data consistency
+        // Side effect: update parent sensor's currentValue
         sensor.setCurrentValue(reading.getValue());
 
         Map<String, Object> response = new LinkedHashMap<>();

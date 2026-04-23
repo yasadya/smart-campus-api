@@ -32,14 +32,14 @@ public class SensorResource {
     private final DataStore store = DataStore.getInstance();
 
     /**
-     * GET /api/v1/sensors GET /api/v1/sensors?type=CO2 (optional filter by
-     * type) Returns all sensors, optionally filtered by type
+     * GET /api/v1/sensors GET /api/v1/sensors?type=CO2 (filter)
      */
     @GET
     public Response getSensors(@QueryParam("type") String type) {
+
         List<Sensor> result = new ArrayList<>(store.sensors.values());
 
-        // Filter by type if query param is provided
+        // Filter by type (case-insensitive)
         if (type != null && !type.isEmpty()) {
             result.removeIf(s -> !s.getType().equalsIgnoreCase(type));
         }
@@ -48,16 +48,20 @@ public class SensorResource {
     }
 
     /**
-     * GET /api/v1/sensors/{id} Returns a single sensor by ID
+     * GET /api/v1/sensors/{id}
      */
     @GET
     @Path("/{id}")
     public Response getSensor(@PathParam("id") String id) {
+
         Sensor sensor = store.sensors.get(id);
 
         if (sensor == null) {
             return Response.status(404)
-                    .entity(Map.of("error", "NOT_FOUND", "message", "Sensor not found"))
+                    .entity(Map.of(
+                            "error", "NOT_FOUND",
+                            "message", "Sensor not found"
+                    ))
                     .build();
         }
 
@@ -65,11 +69,11 @@ public class SensorResource {
     }
 
     /**
-     * POST /api/v1/sensors Registers a new sensor. Validates that the
-     * referenced roomId actually exists - throws 422 if not.
+     * POST /api/v1/sensors
      */
     @POST
     public Response createSensor(Sensor sensor) {
+
         if (sensor.getId() == null || sensor.getId().isEmpty()) {
             Map<String, String> error = new LinkedHashMap<>();
             error.put("error", "INVALID_INPUT");
@@ -77,65 +81,92 @@ public class SensorResource {
             return Response.status(400).entity(error).build();
         }
 
-        // Validate that the roomId exists - Part 3 integrity check
+        // Validate room exists
         if (!store.rooms.containsKey(sensor.getRoomId())) {
             throw new LinkedResourceNotFoundException(sensor.getRoomId());
         }
 
         store.sensors.put(sensor.getId(), sensor);
 
-        // Add sensor ID to the room's sensorIds list
+        // Link sensor to room
         store.rooms.get(sensor.getRoomId()).getSensorIds().add(sensor.getId());
 
-        // Initialize an empty readings list for this sensor
+        // Initialize readings list
         store.readings.put(sensor.getId(), new ArrayList<>());
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("message", "Sensor registered successfully");
         response.put("sensor", sensor);
-        return Response.status(201).entity(response).build();
+
+        return Response.status(201)
+                .header("Location", "/api/v1/sensors/" + sensor.getId())
+                .entity(response)
+                .build();
     }
 
+    /**
+     * PUT /api/v1/sensors/{id}
+     */
     @PUT
     @Path("/{id}")
     public Response updateSensor(@PathParam("id") String id, Sensor updated) {
+
         Sensor sensor = store.sensors.get(id);
 
         if (sensor == null) {
             return Response.status(404)
-                    .entity(Map.of("error", "NOT_FOUND", "message", "Sensor not found"))
+                    .entity(Map.of(
+                            "error", "NOT_FOUND",
+                            "message", "Sensor not found"
+                    ))
                     .build();
         }
 
         sensor.setStatus(updated.getStatus());
 
-        return Response.ok(Map.of("message", "Sensor updated", "sensor", sensor)).build();
+        return Response.ok(Map.of(
+                "message", "Sensor updated",
+                "sensor", sensor
+        )).build();
     }
 
+    /**
+     * DELETE /api/v1/sensors/{id}
+     */
     @DELETE
     @Path("/{id}")
     public Response deleteSensor(@PathParam("id") String id) {
+
         Sensor sensor = store.sensors.remove(id);
 
         if (sensor == null) {
             return Response.status(404)
-                    .entity(Map.of("error", "NOT_FOUND", "message", "Sensor not found"))
+                    .entity(Map.of(
+                            "error", "NOT_FOUND",
+                            "message", "Sensor not found"
+                    ))
                     .build();
         }
 
-        // Remove sensor from room
-        store.rooms.get(sensor.getRoomId()).getSensorIds().remove(id);
+        // Remove from room
+        if (store.rooms.containsKey(sensor.getRoomId())) {
+            store.rooms.get(sensor.getRoomId()).getSensorIds().remove(id);
+        }
+
+        // Remove readings
         store.readings.remove(id);
 
-        return Response.ok(Map.of("message", "Sensor deleted")).build();
+        return Response.ok(Map.of(
+                "message", "Sensor deleted"
+        )).build();
     }
 
     /**
-     * Sub-resource locator - Part 4 Delegates
-     * /api/v1/sensors/{sensorId}/readings to SensorReadingResource
+     * Sub-resource locator /api/v1/sensors/{sensorId}/readings
      */
     @Path("/{sensorId}/readings")
-    public SensorReadingResource getReadingResource(@PathParam("sensorId") String sensorId) {
+    public SensorReadingResource getReadingResource(
+            @PathParam("sensorId") String sensorId) {
         return new SensorReadingResource(sensorId);
     }
 }
