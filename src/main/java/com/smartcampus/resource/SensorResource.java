@@ -10,8 +10,10 @@ import com.smartcampus.model.Sensor;
 import com.smartcampus.store.DataStore;
 
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -92,6 +94,40 @@ public class SensorResource {
         response.put("message", "Sensor registered successfully");
         response.put("sensor", sensor);
         return Response.status(201).entity(response).build();
+    }
+
+    @PUT
+    @Path("/{id}")
+    public Response updateSensor(@PathParam("id") String id, Sensor updated) {
+        Sensor sensor = store.sensors.get(id);
+
+        if (sensor == null) {
+            return Response.status(404)
+                    .entity(Map.of("error", "NOT_FOUND", "message", "Sensor not found"))
+                    .build();
+        }
+
+        sensor.setStatus(updated.getStatus());
+
+        return Response.ok(Map.of("message", "Sensor updated", "sensor", sensor)).build();
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public Response deleteSensor(@PathParam("id") String id) {
+        Sensor sensor = store.sensors.remove(id);
+
+        if (sensor == null) {
+            return Response.status(404)
+                    .entity(Map.of("error", "NOT_FOUND", "message", "Sensor not found"))
+                    .build();
+        }
+
+        // Remove sensor from room
+        store.rooms.get(sensor.getRoomId()).getSensorIds().remove(id);
+        store.readings.remove(id);
+
+        return Response.ok(Map.of("message", "Sensor deleted")).build();
     }
 
     /**
