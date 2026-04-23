@@ -1,12 +1,25 @@
-# Smart Campus Sensor & Room Management API
+  INFORMATICS INSTITUTE OF TECHNOLOGY  
 
-**Author:** yasadya  
-**GitHub:** [yasadya/smart-campus-api](https://github.com/yasadya/smart-campus-api)  
-**Module:** 5COSC022W – Client-Server Architectures  
-**Version:** 1.0  
-**Contact:** admin@smartcampus.ac.uk
+In collaboration with 
+University of Westminster 
 
----
+5COSC022W Client-Server Architectures  - Coursework (2025/26)  
+Individual Report
+
+
+ Module Name: Client-Server Architectures
+Module Code: 5COSC022W
+Module Leader: Mr. Hamed Hamzeh
+
+Name
+IIT ID
+UOW ID
+R.P.Y.Lakdini
+20242101
+w2153609
+
+
+
 
 ## Overview
 
